@@ -9,7 +9,7 @@ class Program
   static void Main()
   {
     // Setup Dependency Injection
-    var sabaSettings = new SambaSettingsBuilder()
+    var sambaSettings = new SambaSettingsBuilder()
       .SetServer("192.168.1.5")
       .SetShare("storage")
       .SetUsername("smbuser")
@@ -17,7 +17,7 @@ class Program
       .Build();
 
     var serviceProvider = new ServiceCollection()
-      .AddSambaFileManagerServices(sabaSettings)
+      .AddSambaFileManagerServices(sambaSettings)
       .BuildServiceProvider();
 
     // Resolve the service
