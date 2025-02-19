@@ -24,10 +24,10 @@ public class SambaFileService : ISambaFileService, IDisposable
     if (sambaSettings == null)
       throw new ArgumentNullException(nameof(sambaSettings));
 
-    _server = sambaSettings.Server ?? throw new ArgumentNullException(nameof(sambaSettings.Server));
-    _share = sambaSettings.Share ?? throw new ArgumentNullException(nameof(sambaSettings.Share));
-    _username = sambaSettings.Username ?? throw new ArgumentNullException(nameof(sambaSettings.Username));
-    _password = sambaSettings.Password ?? throw new ArgumentNullException(nameof(sambaSettings.Password));
+    _server = sambaSettings.Server;
+    _share = sambaSettings.Share;
+    _username = sambaSettings.Username;
+    _password = sambaSettings.Password;
     _domain = sambaSettings.Domain;
 
     _client = new SMB2Client();
@@ -180,15 +180,30 @@ public class SambaFileService : ISambaFileService, IDisposable
     }
   }
 
+  public void CreateDirectoriesRecursively(string filePath)
+  {
+    EnsureDirectoriesExist(filePath);
+  }
+
   private void EnsureDirectoriesExist(string filePath)
   {
-    string[] pathSegments = filePath.Split(['/'], StringSplitOptions.RemoveEmptyEntries);
-    string currentPath = string.Empty;
+    if (string.IsNullOrWhiteSpace(filePath))
+      throw new ArgumentException("File path cannot be null or empty.", nameof(filePath));
+
+    string[] pathSegments = filePath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+    if (pathSegments.Length == 0)
+      return;
+
+    var currentPath = new StringBuilder();
 
     for (int i = 0; i < pathSegments.Length - 1; i++)
     {
-      currentPath += (currentPath == string.Empty ? "" : "/") + pathSegments[i];
-      CreateDirectory(currentPath);
+      if (currentPath.Length > 0)
+        currentPath.Append('/');
+
+      currentPath.Append(pathSegments[i]);
+
+      CreateDirectory(currentPath.ToString());
     }
   }
 

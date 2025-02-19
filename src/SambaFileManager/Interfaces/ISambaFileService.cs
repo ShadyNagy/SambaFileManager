@@ -6,4 +6,5 @@ public interface ISambaFileService
   void WriteFile(string filePath, string content);
   void WriteFile(string filePath, byte[] content);
   void DeleteFile(string filePath);
+  void CreateDirectoriesRecursively(string filePath);
 }
