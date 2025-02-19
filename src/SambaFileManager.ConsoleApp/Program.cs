@@ -1,8 +1,9 @@
-# SambaFileManager
+﻿using Microsoft.Extensions.DependencyInjection;
+using System;
+using SambaFileManager.Interfaces;
+using SambaFileManager.Models;
+using SambaFileManager.Extensions;
 
-### Example
-
-```csharp
 class Program
 {
   static void Main()
@@ -49,5 +50,3 @@ class Program
     }
   }
 }
-
-```

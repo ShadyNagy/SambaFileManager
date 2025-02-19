@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+  <metadata>
+    <id>SambaFileManager</id>
+    <title>Samba File Manager</title>
+    <version>1.0.0</version>
+    <authors>Shady Nagy</authors>
+    <owners>Shady Nagy</owners>
+
+    <description>
+      SambaFileManager is a .NET library that simplifies file operations on Samba (SMB) servers.
+      It provides an easy-to-use interface for reading, writing, and deleting files over an SMB network.
+      The library integrates seamlessly with .NET Dependency Injection, making it an ideal choice for enterprise applications
+      that require secure file handling over a Samba server.
+    </description>
+
+    <summary>
+      A .NET library for managing Samba (SMB) file operations with dependency injection support.
+    </summary>
+
+    <language>en-US</language>
+    <license type="expression">MIT</license>
+
+    <repository type="git" url="https://github.com/ShadyNagy/SambaFileManager" />
+    <projectUrl>https://github.com/ShadyNagy/SambaFileManager</projectUrl>
+    <documentation>https://github.com/ShadyNagy/SambaFileManager/wiki</documentation>
+    <issueTracker>https://github.com/ShadyNagy/SambaFileManager/issues</issueTracker>
+
+    <releaseNotes>
+      - Initial release of SambaFileManager.
+      - Supports reading, writing, and deleting files on Samba servers.
+      - Integrates with .NET 8 Dependency Injection.
+      - Provides error handling and exception management for SMB connections.
+    </releaseNotes>
+
+    <tags>SAMBA, File Manager, SMB, File Operations, Networking, .NET 8</tags>
+
+    <icon>icon.png</icon>
+    <copyright>Copyright 2019 - 2025 (c) Shady Nagy. All rights reserved.</copyright>
+    <readme>README.md</readme>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+    <!-- Dependencies -->
+    <dependencies>
+      <group targetFramework="net8.0">
+        <dependency id="Microsoft.Extensions.DependencyInjection.Abstractions" version="8.0.0" />
+        <dependency id="SMBLibrary" version="1.5.4" />
+      </group>
+    </dependencies>
+
+    <RequireLicenseAcceptance>false</RequireLicenseAcceptance>
+  </metadata>
+
+  <files>
+    <file src="src\SambaFileManager\bin\Release\net80\SambaFileManager.dll" target="lib\net8.0" />
+    <file src="icon.png" />
+    <file src="README.md" />
+    <file src="LICENSE" />
+  </files>
+</package>
