@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using SambaFileManager.Interfaces;
 using SambaFileManager.Models;
@@ -61,7 +62,7 @@ public class SambaFileService : ISambaFileService, IDisposable
 
       var status = _tree.CreateFile(
         out var fileHandle,
-        out var fileStatus,
+        out _,
         filePath,
         AccessMask.GENERIC_READ,
         FileAttributes.Normal,
@@ -115,7 +116,7 @@ public class SambaFileService : ISambaFileService, IDisposable
 
       var status = _tree.CreateFile(
         out var fileHandle,
-        out var fileStatus,
+        out _,
         filePath,
         AccessMask.GENERIC_WRITE,
         FileAttributes.Normal,
@@ -155,7 +156,7 @@ public class SambaFileService : ISambaFileService, IDisposable
 
       var status = _tree.CreateFile(
           out var fileHandle,
-          out var fileStatus,
+          out _,
           filePath,
           AccessMask.DELETE,
           FileAttributes.Normal,
@@ -183,6 +184,221 @@ public class SambaFileService : ISambaFileService, IDisposable
   public void CreateDirectoriesRecursively(string filePath)
   {
     EnsureDirectoriesExist(filePath);
+  }
+
+  public void DeleteFolder(string folderPath)
+  {
+    Connect();
+    try
+    {
+      if (_tree == null)
+        throw new InvalidOperationException("SMB connection is not initialized.");
+
+      var status = _tree.CreateFile(
+          out var dirHandle,
+          out _,
+          folderPath,
+          AccessMask.DELETE,
+          FileAttributes.Directory,
+          ShareAccess.Read,
+          CreateDisposition.FILE_OPEN,
+          CreateOptions.FILE_DIRECTORY_FILE,
+          null);
+
+      if (status != NTStatus.STATUS_SUCCESS)
+        throw new IOException($"Failed to open directory: {status}");
+
+      FileDispositionInformation dispositionInfo = new() { DeletePending = true };
+      status = _tree.SetFileInformation(dirHandle, dispositionInfo);
+      _tree.CloseFile(dirHandle);
+
+      if (status != NTStatus.STATUS_SUCCESS)
+        throw new IOException($"Failed to delete directory: {status}");
+    }
+    finally
+    {
+      Disconnect();
+    }
+  }
+
+  public void DeleteFolderRecursive(string folderPath)
+  {
+    Connect();
+    try
+    {
+      DeleteFolderRecursiveInternal(folderPath);
+    }
+    finally
+    {
+      Disconnect();
+    }
+  }
+
+  public void RenameFile(string oldPath, string newPath)
+  {
+    Connect();
+    try
+    {
+      if (_tree == null)
+        throw new InvalidOperationException("SMB connection is not initialized.");
+
+      var status = _tree.CreateFile(
+          out var fileHandle,
+          out _,
+          oldPath,
+          AccessMask.GENERIC_READ | AccessMask.GENERIC_WRITE | AccessMask.DELETE,
+          FileAttributes.Normal,
+          ShareAccess.Read,
+          CreateDisposition.FILE_OPEN,
+          CreateOptions.FILE_NON_DIRECTORY_FILE,
+          null);
+
+      if (status != NTStatus.STATUS_SUCCESS)
+        throw new IOException($"Failed to open file {oldPath}: {status}");
+
+      var renameInfo = new FileRenameInformationType2
+      {
+        ReplaceIfExists = false,
+        FileName = newPath
+      };
+
+      status = _tree.SetFileInformation(fileHandle, renameInfo);
+      _tree.CloseFile(fileHandle);
+
+      if (status != NTStatus.STATUS_SUCCESS)
+        throw new IOException($"Failed to rename file from {oldPath} to {newPath}: {status}");
+    }
+    finally
+    {
+      Disconnect();
+    }
+  }
+
+  public void RenameFolder(string oldPath, string newPath)
+  {
+    Connect();
+    try
+    {
+      if (_tree == null)
+        throw new InvalidOperationException("SMB connection is not initialized.");
+
+      var status = _tree.CreateFile(
+          out var dirHandle,
+          out _,
+          oldPath,
+          AccessMask.GENERIC_READ | AccessMask.GENERIC_WRITE | AccessMask.DELETE,
+          FileAttributes.Directory,
+          ShareAccess.Read,
+          CreateDisposition.FILE_OPEN,
+          CreateOptions.FILE_DIRECTORY_FILE,
+          null);
+
+      if (status != NTStatus.STATUS_SUCCESS)
+        throw new IOException($"Failed to open directory {oldPath}: {status}");
+
+      var renameInfo = new FileRenameInformationType2
+      {
+        ReplaceIfExists = false,
+        FileName = newPath
+      };
+
+      status = _tree.SetFileInformation(dirHandle, renameInfo);
+      _tree.CloseFile(dirHandle);
+
+      if (status != NTStatus.STATUS_SUCCESS)
+        throw new IOException($"Failed to rename directory from {oldPath} to {newPath}: {status}");
+    }
+    finally
+    {
+      Disconnect();
+    }
+  }
+
+  private void DeleteFolderRecursiveInternal(string folderPath)
+  {
+    if (_tree == null)
+      throw new InvalidOperationException("SMB connection is not initialized.");
+
+    var status = _tree.CreateFile(
+        out var dirHandle,
+        out _,
+        folderPath,
+        AccessMask.GENERIC_READ | AccessMask.DELETE,
+        FileAttributes.Directory,
+        ShareAccess.Read,
+        CreateDisposition.FILE_OPEN,
+        CreateOptions.FILE_DIRECTORY_FILE,
+        null);
+
+    if (status != NTStatus.STATUS_SUCCESS)
+      throw new IOException($"Failed to open directory: {status}");
+
+    status = _tree.QueryDirectory(out var files, dirHandle, "*", FileInformationClass.FileDirectoryInformation);
+    if (status != NTStatus.STATUS_SUCCESS)
+    {
+      _tree.CloseFile(dirHandle);
+      throw new IOException($"Failed to list directory contents: {status}");
+    }
+
+    foreach (var fileInfo in files.Cast<FileDirectoryInformation>())
+    {
+      string name = fileInfo.FileName;
+      if (name == "." || name == "..")
+        continue;
+
+      string fullPath = Path.Combine(folderPath, name);
+
+      if ((fileInfo.FileAttributes & FileAttributes.Directory) != 0)
+      {
+        DeleteFolderRecursiveInternal(fullPath);
+      }
+      else
+      {
+        status = _tree.CreateFile(
+            out var fileHandle,
+            out _,
+            fullPath,
+            AccessMask.DELETE,
+            FileAttributes.Normal,
+            ShareAccess.Read,
+            CreateDisposition.FILE_OPEN,
+            CreateOptions.FILE_NON_DIRECTORY_FILE,
+            null);
+
+        if (status != NTStatus.STATUS_SUCCESS)
+          throw new IOException($"Failed to open file {fullPath}: {status}");
+
+        FileDispositionInformation disposition = new() { DeletePending = true };
+        status = _tree.SetFileInformation(fileHandle, disposition);
+        _tree.CloseFile(fileHandle);
+
+        if (status != NTStatus.STATUS_SUCCESS)
+          throw new IOException($"Failed to delete file {fullPath}: {status}");
+      }
+    }
+
+    _tree.CloseFile(dirHandle);
+
+    status = _tree.CreateFile(
+        out var dirHandleDelete,
+        out _,
+        folderPath,
+        AccessMask.DELETE,
+        FileAttributes.Directory,
+        ShareAccess.Read,
+        CreateDisposition.FILE_OPEN,
+        CreateOptions.FILE_DIRECTORY_FILE,
+        null);
+
+    if (status != NTStatus.STATUS_SUCCESS)
+      throw new IOException($"Failed to open directory for deletion: {status}");
+
+    FileDispositionInformation dirDisposition = new() { DeletePending = true };
+    status = _tree.SetFileInformation(dirHandleDelete, dirDisposition);
+    _tree.CloseFile(dirHandleDelete);
+
+    if (status != NTStatus.STATUS_SUCCESS)
+      throw new IOException($"Failed to delete directory: {status}");
   }
 
   private void EnsureDirectoriesExist(string filePath)
