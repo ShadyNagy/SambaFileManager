@@ -83,7 +83,11 @@ public class SambaFileService : ISambaFileService, IDisposable
       {
         status = _tree.ReadFile(out byte[] chunk, fileHandle, offset, CHUNK_SIZE);
 
-        if (status != NTStatus.STATUS_SUCCESS)
+        if (status == NTStatus.STATUS_END_OF_FILE)
+        {
+          break;
+        }
+        else if (status != NTStatus.STATUS_SUCCESS)
         {
           _tree.CloseFile(fileHandle);
           throw new IOException($"Failed to read file at offset {offset}: {status}");
