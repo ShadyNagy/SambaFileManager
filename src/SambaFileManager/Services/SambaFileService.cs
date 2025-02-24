@@ -19,6 +19,7 @@ public class SambaFileService : ISambaFileService, IDisposable
   private readonly string? _domain;
   private SMB2Client? _client;
   private ISMBFileStore? _tree;
+  private const int CHUNK_SIZE = 64 * 1024;
 
   public SambaFileService(SambaSettings sambaSettings)
   {
@@ -60,6 +61,7 @@ public class SambaFileService : ISambaFileService, IDisposable
       if (_tree == null)
         throw new InvalidOperationException("SMB connection is not initialized.");
 
+      // 1. Open the file
       var status = _tree.CreateFile(
         out var fileHandle,
         out _,
@@ -74,28 +76,39 @@ public class SambaFileService : ISambaFileService, IDisposable
       if (status != NTStatus.STATUS_SUCCESS)
         throw new IOException($"Failed to open file: {status}");
 
-      status = _tree.GetFileInformation(out var fileInfo, fileHandle, FileInformationClass.FileStandardInformation);
-      if (status != NTStatus.STATUS_SUCCESS)
+      long offset = 0;
+      using var ms = new MemoryStream();
+
+      while (true)
       {
-        _tree.CloseFile(fileHandle);
-        throw new IOException($"Failed to retrieve file information: {status}");
+        status = _tree.ReadFile(out byte[] chunk, fileHandle, offset, CHUNK_SIZE);
+
+        if (status != NTStatus.STATUS_SUCCESS)
+        {
+          _tree.CloseFile(fileHandle);
+          throw new IOException($"Failed to read file at offset {offset}: {status}");
+        }
+
+        if (chunk.Length == 0)
+        {
+          break;
+        }
+
+        ms.Write(chunk, 0, chunk.Length);
+
+        offset += chunk.Length;
       }
 
-      byte[] data = new byte[fileInfo.Length];
-
-      status = _tree.ReadFile(out data, fileHandle, 0, data.Length);
       _tree.CloseFile(fileHandle);
 
-      if (status != NTStatus.STATUS_SUCCESS)
-        throw new IOException($"Failed to read file: {status}");
-
-      return data;
+      return ms.ToArray();
     }
     finally
     {
       Disconnect();
     }
   }
+
 
   public string ReadStringFile(string filePath)
   {
@@ -128,7 +141,6 @@ public class SambaFileService : ISambaFileService, IDisposable
       if (status != NTStatus.STATUS_SUCCESS)
         throw new IOException($"Failed to create file: {status}");
 
-      const int CHUNK_SIZE = 64 * 1024;
       long offset = 0;
       int bytesWritten = 0;
 
