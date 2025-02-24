@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
-using System.Reflection.Metadata;
 using System.Text;
 using SambaFileManager.Interfaces;
 using SambaFileManager.Models;
@@ -329,6 +328,49 @@ public class SambaFileService : ISambaFileService, IDisposable
 
       if (status != NTStatus.STATUS_SUCCESS)
         throw new IOException($"Failed to rename directory from {oldPath} to {newPath}: {status}");
+    }
+    finally
+    {
+      Disconnect();
+    }
+  }
+
+  public bool FileExists(string filePath)
+  {
+    Connect();
+    try
+    {
+      if (_tree == null)
+        throw new InvalidOperationException("SMB connection is not initialized.");
+
+      var status = _tree.CreateFile(
+        out var fileHandle,
+        out var fileStatus,
+        filePath,
+        AccessMask.GENERIC_READ, 
+        FileAttributes.Normal,
+        ShareAccess.Read,
+        CreateDisposition.FILE_OPEN,    
+        CreateOptions.FILE_NON_DIRECTORY_FILE,
+        null);
+
+      if (status == NTStatus.STATUS_SUCCESS)
+      {
+        _tree.CloseFile(fileHandle);
+        return true;
+      }
+      else if (status == NTStatus.STATUS_OBJECT_NAME_NOT_FOUND ||
+               status == NTStatus.STATUS_NO_SUCH_FILE ||
+               status == NTStatus.STATUS_OBJECT_PATH_NOT_FOUND)
+      {
+        // The file does not exist
+        return false;
+      }
+      else
+      {
+        // Some other error occurred (e.g. permission issues, server error, etc.)
+        throw new IOException($"Error checking file existence: {status}");
+      }
     }
     finally
     {

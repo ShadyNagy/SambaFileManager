@@ -11,6 +11,8 @@ public interface ISambaFileService
   /// <returns>The file content as a byte array.</returns>
   byte[] ReadFile(string filePath);
 
+  bool FileExists(string filePath);
+
   /// <summary>
   /// Reads a file from the SMB share and returns its content as a UTF-8 encoded string.
   /// </summary>
