@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using SambaFileManager.Interfaces;
 using SambaFileManager.Models;
@@ -128,11 +129,32 @@ public class SambaFileService : ISambaFileService, IDisposable
       if (status != NTStatus.STATUS_SUCCESS)
         throw new IOException($"Failed to create file: {status}");
 
-      status = _tree.WriteFile(out var bytesWritten, fileHandle, 0, content);
-      _tree.CloseFile(fileHandle);
+      const int CHUNK_SIZE = 64 * 1024;
+      long offset = 0;
+      int bytesWritten = 0;
 
-      if (status != NTStatus.STATUS_SUCCESS || bytesWritten != content.Length)
-        throw new IOException($"Failed to write file: {status}");
+      while (offset < content.Length)
+      {
+        int lengthToWrite = (int)Math.Min(CHUNK_SIZE, content.Length - offset);
+        byte[] buffer = new byte[lengthToWrite];
+        Array.Copy(content, offset, buffer, 0, lengthToWrite);
+
+        status = this._tree.WriteFile(out int numberOfBytesWritten, fileHandle, offset, buffer);
+        if (status != NTStatus.STATUS_SUCCESS)
+        {
+          throw new IOException($"Failed to write chunk at offset {offset}, NTStatus={status}");
+        }
+
+        offset += numberOfBytesWritten;
+        bytesWritten += numberOfBytesWritten;
+      }
+
+      if (bytesWritten != content.Length)
+      {
+        throw new IOException("Not all bytes were written!");
+      }
+
+      _tree.CloseFile(fileHandle);
     }
     finally
     {
