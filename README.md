@@ -2,7 +2,7 @@
 [![SambaFileManager on NuGet](https://img.shields.io/nuget/v/SambaFileManager?label=SambaFileManager)](https://www.nuget.org/packages/SambaFileManager/)
 [![NuGet](https://img.shields.io/nuget/dt/SambaFileManager)](https://www.nuget.org/packages/SambaFileManager)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/ShadyNagy/SambaFileManager/blob/main/LICENSE)
-[![paypal](https://img.shields.io/badge/PayPal-tip%20me-green.svg?logo=paypal)](https://www.paypal.me/shadynagy)
+[![Sponsor](https://img.shields.io/badge/Sponsor-ShadyNagy-brightgreen?logo=github-sponsors)](https://github.com/sponsors/ShadyNagy)
 
 # 📁 SambaFileManager
 
